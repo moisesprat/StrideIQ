@@ -119,6 +119,40 @@ async def get_activity(activity_id: int) -> dict:
         return resp.json()
 
 
+async def list_activities(
+    before: int | None = None,
+    after: int | None = None,
+    page: int = 1,
+    per_page: int = 50,
+) -> list[dict]:
+    """
+    List athlete activities (summary objects) from the Strava API.
+
+    Args:
+        before: Unix timestamp — only return activities before this time.
+        after:  Unix timestamp — only return activities after this time.
+        page:   Page number (1-based).
+        per_page: Results per page (max 200).
+
+    Returns an empty list when there are no more pages.
+    """
+    access_token = await token_manager.get_access_token()
+    params: dict = {"page": page, "per_page": per_page}
+    if before is not None:
+        params["before"] = before
+    if after is not None:
+        params["after"] = after
+
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{STRAVA_API_BASE}/athlete/activities",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params=params,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
 async def get_activity_streams(activity_id: int) -> dict:
     """
     Fetch time-series streams (GPS, heart rate, power, etc.) for an activity.

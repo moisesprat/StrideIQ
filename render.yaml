@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: strideiq-ingestion
+    runtime: docker
+    dockerfilePath: ./ingestion/Dockerfile
+    dockerContext: ./ingestion
+    plan: free
+    envVars:
+      - key: STRAVA_CLIENT_ID
+        sync: false
+      - key: STRAVA_CLIENT_SECRET
+        sync: false
+      - key: STRAVA_VERIFY_TOKEN
+        sync: false
+      - key: STRAVA_REFRESH_TOKEN
+        sync: false
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: strideiq-raw
+      - key: APP_BASE_URL
+        sync: false

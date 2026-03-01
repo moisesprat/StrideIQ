@@ -14,10 +14,38 @@ from datetime import datetime, timezone
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from app.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+def _activity_key(athlete_id: int, activity_id: int, start_date: str) -> str:
+    """
+    Derive the R2 object key for an activity.
+
+    Uses the activity's own start_date so files are organised by when the
+    workout happened, not when it was ingested (important for backfills).
+    Falls back to the current UTC time when start_date is absent/invalid.
+    """
+    try:
+        dt = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        dt = datetime.now(timezone.utc)
+    return f"activities/{athlete_id}/{dt.year}/{dt.month:02d}/{activity_id}.json"
+
+
+def _sync_exists(key: str, bucket: str) -> bool:
+    """Return True if the R2 object already exists (synchronous, runs in thread)."""
+    client = _make_r2_client()
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError as exc:
+        if exc.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            return False
+        raise
 
 
 def _make_r2_client():
@@ -48,6 +76,13 @@ def _sync_upload(key: str, body: bytes, metadata: dict[str, str], bucket: str) -
     logger.info("Stored → R2://%s/%s", bucket, key)
 
 
+async def activity_exists(athlete_id: int, activity_id: int, start_date: str) -> bool:
+    """Return True if this activity has already been stored in R2."""
+    settings = get_settings()
+    key = _activity_key(athlete_id, activity_id, start_date)
+    return await asyncio.to_thread(_sync_exists, key, settings.r2_bucket_name)
+
+
 async def store_activity(
     athlete_id: int,
     activity_id: int,
@@ -57,12 +92,15 @@ async def store_activity(
     """
     Persist raw activity + streams data to R2.
 
+    The R2 key is derived from the activity's own start_date so the folder
+    structure reflects when the workout happened, not when it was ingested.
+
     Returns the R2 object key where the data was stored.
     """
     settings = get_settings()
     now = datetime.now(timezone.utc)
 
-    key = f"activities/{athlete_id}/{now.year}/{now.month:02d}/{activity_id}.json"
+    key = _activity_key(athlete_id, activity_id, activity_data.get("start_date", ""))
 
     payload = {
         "schema_version": "1.0",

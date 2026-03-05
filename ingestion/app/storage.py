@@ -63,6 +63,13 @@ def _make_r2_client():
     )
 
 
+def _ascii_metadata(value: str) -> str:
+    """Encode metadata value for S3/R2: only ASCII is allowed in object metadata."""
+    if not value:
+        return value
+    return value.encode("ascii", "replace").decode("ascii")
+
+
 def _sync_upload(key: str, body: bytes, metadata: dict[str, str], bucket: str) -> None:
     """Synchronous upload — runs inside a thread pool via asyncio.to_thread."""
     client = _make_r2_client()
@@ -115,8 +122,8 @@ async def store_activity(
         "athlete-id": str(athlete_id),
         "activity-id": str(activity_id),
         "ingested-at": now.isoformat(),
-        "activity-type": activity_data.get("type", "unknown"),
-        "activity-name": activity_data.get("name", ""),
+        "activity-type": _ascii_metadata(activity_data.get("type", "unknown")),
+        "activity-name": _ascii_metadata(activity_data.get("name", "")),
     }
 
     body = json.dumps(payload, indent=2).encode("utf-8")

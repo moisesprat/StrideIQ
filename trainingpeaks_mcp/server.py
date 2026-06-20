@@ -2,11 +2,12 @@
 TrainingPeaks MCP Server
 
 Exposes tools for uploading planned workouts and training plans to TrainingPeaks.
+Authentication is handled via a headless browser (Playwright) using your normal
+TrainingPeaks login credentials — no API partner approval required.
 
 Required environment variables:
-  TP_CLIENT_ID       – TrainingPeaks OAuth app client ID
-  TP_CLIENT_SECRET   – TrainingPeaks OAuth app client secret
-  TP_REFRESH_TOKEN   – User refresh token (obtained via OAuth flow)
+  TP_USERNAME   – Your TrainingPeaks username / email
+  TP_PASSWORD   – Your TrainingPeaks password
 
 Run:
   python -m trainingpeaks_mcp.server
@@ -18,7 +19,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
 
-from .auth import TokenManager
+from .auth import SessionManager
 from .client import TrainingPeaksClient
 
 load_dotenv()
@@ -26,20 +27,19 @@ load_dotenv()
 mcp = FastMCP("TrainingPeaks")
 
 # Singletons initialised on first use so env vars are read at call time
-_token_manager: Optional[TokenManager] = None
+_session: Optional[SessionManager] = None
 _client: Optional[TrainingPeaksClient] = None
 _athlete_id: Optional[str] = None
 
 
 def _get_client() -> TrainingPeaksClient:
-    global _token_manager, _client
+    global _session, _client
     if _client is None:
-        _token_manager = TokenManager(
-            client_id=os.environ["TP_CLIENT_ID"],
-            client_secret=os.environ["TP_CLIENT_SECRET"],
-            refresh_token=os.environ["TP_REFRESH_TOKEN"],
+        _session = SessionManager(
+            username=os.environ["TP_USERNAME"],
+            password=os.environ["TP_PASSWORD"],
         )
-        _client = TrainingPeaksClient(_token_manager)
+        _client = TrainingPeaksClient(_session)
     return _client
 
 

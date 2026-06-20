@@ -1,16 +1,16 @@
 import httpx
 
-from .auth import TokenManager
+from .auth import SessionManager
 
 TP_API_BASE = "https://tpapi.trainingpeaks.com"
 
 
 class TrainingPeaksClient:
-    def __init__(self, token_manager: TokenManager):
-        self._tokens = token_manager
+    def __init__(self, session: SessionManager):
+        self._session = session
 
     async def _headers(self) -> dict[str, str]:
-        token = await self._tokens.get_access_token()
+        token = await self._session.get_access_token()
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     async def get_athlete(self) -> dict:
